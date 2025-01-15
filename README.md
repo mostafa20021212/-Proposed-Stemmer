@@ -88,7 +88,7 @@ Contributions are welcome! If you’d like to improve the tool or add features:
    ```
 3. Commit your changes:
    ```bash
-  git commit -m "Add feature-name"
+   git commit -m "Add feature-name"
    ```
 4. Push to the branch:
    ```bash
