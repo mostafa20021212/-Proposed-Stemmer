@@ -1,12 +1,12 @@
-﻿Imports System.ComponentModel
+Imports System.ComponentModel
 Imports System.Formats.Asn1
 Imports System.Net.NetworkInformation
 Imports System.Reflection
 Imports System.Reflection.Emit
 Imports System.Threading
 
-
 Public Class Form1
+    ' Form-level variables
     Dim flagSort As Boolean
     Dim x, y As Integer
     Dim panel As New Panel
@@ -17,357 +17,303 @@ Public Class Form1
     Dim ignore As New Dictionary(Of String, Boolean)
     Dim newItems As New Dictionary(Of String, HashSet(Of String))
 
+    ' Form Load Event
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        ' Initialize form size and position variables
         Me.Size = New Size(1025, 666)
         x = 12
         y = 12
+
+        ' Load initial data
         ignore.insertIgnoreWords()
         hashPattren.insrtPattrens()
         prefixe.insrtPrefixe()
         suffixe.insrtSuffixe()
     End Sub
 
-
+    ' Button Click Event: Start processing input
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
-
-
-        Dim words As New List(Of String)
-
-        words = TextBox1.Text.Split(" ").ToList
+        Dim words As List(Of String) = TextBox1.Text.Split(" ").ToList
         root(words)
-
         newForm()
     End Sub
 
+    ' Process input words to extract root
     Private Sub root(words As List(Of String))
-
-        words.RemoveAll(Function(s As String)
-                            Return s = ""
-                        End Function)
+        words.RemoveAll(Function(s) s = "")
 
         Dim flip As Boolean = True
         Dim ans As String = ""
         Dim edit As String
 
-        For Each i As String In words
+        For Each word As String In words
+            word.ReplaceNotGoodChar()
+            word = word.Trim()
+            edit = word
 
-            i.ReplaceNotGoodChar()
-            'i.removeSpace()
-            i = i.Trim()
-            edit = i
-
-            If i.isIgnore(ignore) Then
-                ignore(i) = True
+            If word.isIgnore(ignore) Then
+                ignore(word) = True
                 Continue For
             End If
 
-            If i.isDigit Then
+            If word.isDigit Then Continue For
+
+            If word = "الله" Then
+                insertInMap(word, word, word)
                 Continue For
             End If
 
-            If i = "الله" Then
-                insertInMap(i, i, i)
-                Continue For
-            End If
             firstRemove(edit, ans, flip)
-
             flip = True
-
             secondRemove(edit, ans, flip)
-
-
-            insertInMap(edit, ans, i)
+            insertInMap(edit, ans, word)
 
             ans = ""
             flip = True
         Next
     End Sub
 
-
+    ' Remove prefixes from word
     Private Function deletePrefixe(ByRef edit As String) As Boolean
-        For Each i As String In prefixe
-            If edit.StartsWith(i) Then
-                edit = edit.Substring(i.Length)
+        For Each prefix As String In prefixe
+            If edit.StartsWith(prefix) Then
+                edit = edit.Substring(prefix.Length)
                 Return True
-
             End If
         Next
-
         Return False
     End Function
 
+    ' Remove suffixes from word
     Private Function deleteSuffixe(ByRef edit As String) As Boolean
-        For Each i As String In suffixe
-            If edit.EndsWith(i) Then
-                edit = edit.Substring(0, edit.Length - i.Length)
+        For Each suffix As String In suffixe
+            If edit.EndsWith(suffix) Then
+                edit = edit.Substring(0, edit.Length - suffix.Length)
                 Return True
             End If
         Next
         Return False
     End Function
 
-    Private Function check(pattrens As String(), word As String)
+    ' Match word with patterns
+    Private Function check(patterns As String(), word As String) As String
+        For Each pattern As String In patterns
+            Dim one = pattern.IndexOf("ف")
+            Dim two = pattern.IndexOf("ع")
+            Dim three = pattern.IndexOf("ل")
 
-        For Each i As String In pattrens
-
-            Dim one = i.IndexOf("ف"), two = i.IndexOf("ع"), three = i.IndexOf("ل"), same = word
-
-
-            Dim arr() As Char = same.ToCharArray()
+            Dim arr() As Char = word.ToCharArray()
             arr(one) = "ف"
             arr(two) = "ع"
             arr(three) = "ل"
-            same = String.Concat(arr)
+            Dim transformedWord = New String(arr)
 
-
-            If same = i Then
-
+            If transformedWord = pattern Then
                 Return word(one) + word(two) + word(three)
             End If
-
         Next
         Return ""
     End Function
 
+    ' Remove prefixes
     Private Sub firstRemove(ByRef edit As String, ByRef ans As String, ByRef flip As Boolean)
-        While ans = "" And flip
-
+        While ans = "" AndAlso flip
             If hashPattren.ContainsKey(edit.Length) Then
                 ans = check(hashPattren(edit.Length), edit)
             End If
 
             If ans = "" Then
                 flip = deletePrefixe(edit)
-                If flip Then
-                    edit.editStartWithPrefixe
-                End If
+                If flip Then edit.editStartWithPrefixe()
             End If
-
         End While
     End Sub
 
+    ' Remove suffixes
     Private Sub secondRemove(ByRef edit As String, ByRef ans As String, ByRef flip As Boolean)
-        While ans = "" And flip
-
+        While ans = "" AndAlso flip
             If hashPattren.ContainsKey(edit.Length) Then
                 ans = check(hashPattren(edit.Length), edit)
             End If
 
             If ans = "" Then
                 flip = deleteSuffixe(edit)
-                If flip Then
-                    edit.editEndWithSuffixe
-                End If
+                If flip Then edit.editEndWithSuffixe()
             End If
-
         End While
     End Sub
 
-    Private Sub insertInMap(ByRef edit As String, ByRef ans As String, ByRef i As String)
+    ' Insert word into map
+    Private Sub insertInMap(ByRef edit As String, ByRef ans As String, ByRef word As String)
+        If edit.Length = 3 AndAlso ans = "" Then ans = edit
+        If word.Length = 3 AndAlso ans = "" Then ans = word
 
-
-        If edit.Length = 3 And ans = "" Then
-            ans = edit
-        End If
-
-        If i.Length = 3 And ans = "" Then
-            ans = i
-        End If
-
-        If ans.Length <> 3 Then
-            If (ans.Length <> 3 And i = "الله") Then
-            Else
-                Exit Sub
-            End If
-        End If
+        If ans.Length <> 3 Then Exit Sub
 
         If Not newItems.ContainsKey(ans) Then
             newItems.Add(ans, New HashSet(Of String))
         End If
-        If Not newItems(ans).Contains(i) Then
-            newItems(ans).Add(i)
-            createButton(ans, i)
+
+        If Not newItems(ans).Contains(word) Then
+            newItems(ans).Add(word)
+            createButton(ans, word)
         End If
     End Sub
 
-
-
+    ' Create new form for output
     Private Sub newForm()
         Me.Hide()
         Me.Size = New Size(1368, 769)
-        Me.BackgroundImage = New System.Drawing.Bitmap(Button1.BackgroundImage)
-        System.Threading.Thread.Sleep(300)
+        Me.BackgroundImage = New Bitmap(Button1.BackgroundImage)
+        Thread.Sleep(300)
+
         Me.Controls.Remove(Button1)
         Me.Controls.Remove(TextBox1)
         Me.Controls.Remove(Label1)
+
         panel.AutoSize = True
         CheckBox1.Visible = True
+
         btnSort()
         createBox(panel)
-        Me.Show()
 
+        Me.Show()
         buttonForText()
     End Sub
 
-
-
+    ' Create sort button
     Private Sub btnSort()
-        Dim btn As New Button
-        btn.Size = New Size(131, 40)
-        btn.Text = "Sort"
-        btn.Tag = "Sort"
-        btn.Name = "Sort"
-        AddHandler btn.Click, AddressOf sort_btn
-        btn.Font = New Font(Button1.Font.FontFamily, Button1.Font.Size, Button1.Font.Style)
-        btn.Location = New Point(990, 500)
-        btn.BackgroundImage = New System.Drawing.Bitmap(Button1.BackgroundImage)
-        Me.Controls.Add(btn)
-        createBox(listSort)
+        Dim btn As New Button With {
+            .Size = New Size(131, 40),
+            .Text = "Sort",
+            .Tag = "Sort",
+            .Name = "Sort",
+            .Font = New Font(Button1.Font.FontFamily, Button1.Font.Size, Button1.Font.Style),
+            .Location = New Point(990, 500),
+            .BackgroundImage = New Bitmap(Button1.BackgroundImage)
+        }
 
+        AddHandler btn.Click, AddressOf sort_btn
+        Me.Controls.Add(btn)
+
+        createBox(listSort)
         listSort.RightToLeft = RightToLeft.Yes
         listSort.Visible = False
     End Sub
 
-    Private Sub createButton(ans As String, i As String)
+    ' Create buttons dynamically
+    Private Sub createButton(ans As String, word As String)
+        Dim btn As New Button With {
+            .Size = New Size(131, 40),
+            .Location = New Point(x, y),
+            .Text = word,
+            .Tag = ans
+        }
 
+        AddHandler btn.MouseHover, AddressOf hover_btn
+        AddHandler btn.MouseLeave, AddressOf hover_btn
 
-        Dim btn As New Button
-        btn.Size = New Size(131, 40)
-
-        btn.Location = New Point(x, y)
         x += 129
         If x >= 790 Then
             y += 46
             x = 12
         End If
-        btn.Text = i
-        btn.Tag = ans
-        AddHandler btn.MouseHover, AddressOf hover_btn
-        AddHandler btn.MouseLeave, AddressOf hover_btn
+
         panel.Controls.Add(btn)
-
-
     End Sub
 
-    Private Sub createBox(ByRef panel As Object)
-
-        panel.Size = New Size(792, 681)
-
-        panel.Location = New Point(2, 12)
-        panel.BorderStyle = BorderStyle.Fixed3D
-        panel.BackgroundImage = New System.Drawing.Bitmap(Button1.BackgroundImage)
-        Me.Controls.Add(panel)
+    ' Create container for buttons or lists
+    Private Sub createBox(ByRef container As Object)
+        container.Size = New Size(792, 681)
+        container.Location = New Point(2, 12)
+        container.BorderStyle = BorderStyle.Fixed3D
+        container.BackgroundImage = New Bitmap(Button1.BackgroundImage)
+        Me.Controls.Add(container)
     End Sub
 
-    Private Sub hover_btn(sender As System.Object, e As System.EventArgs) Handles Button1.MouseLeave
-        System.Threading.Thread.Sleep(20)
-        Dim btn As Button = sender
+    ' Button hover behavior
+    Private Sub hover_btn(sender As Object, e As EventArgs) Handles Button1.MouseLeave
+        Dim btn As Button = CType(sender, Button)
         Dim newName = btn.Text
         btn.Text = btn.Tag
         btn.Tag = newName
-
     End Sub
 
-
-
+    ' Add new text button
     Private Sub buttonForText()
-        Dim btn As New Button
-        btn.Size = New Size(131, 40)
-        btn.Location = New Point(980, 280)
-        btn.BackgroundImage = New System.Drawing.Bitmap(My.Resources._6921087_ai)
-        btn.Text = "Add New Text"
-        btn.Tag = "Add New Text"
-        btn.Name = "btnText"
-        btn.AutoSize = True
+        Dim btn As New Button With {
+            .Size = New Size(131, 40),
+            .Location = New Point(980, 280),
+            .BackgroundImage = New Bitmap(My.Resources._6921087_ai),
+            .Text = "Add New Text",
+            .Tag = "Add New Text",
+            .Name = "btnText",
+            .AutoSize = True
+        }
 
         AddHandler btn.MouseHover, AddressOf hover_addText
         AddHandler btn.Click, AddressOf click_addText
-
         Me.Controls.Add(btn)
     End Sub
 
-    Private Sub hover_addText(sender As System.Object, e As System.EventArgs) Handles Button1.MouseHover
-
-        Dim btn As Button = sender
-        If btn.Name = "btnText" Then
-            TextBox2.Visible = True
-        End If
+    ' Hover behavior for Add New Text button
+    Private Sub hover_addText(sender As Object, e As EventArgs) Handles Button1.MouseHover
+        Dim btn As Button = CType(sender, Button)
+        If btn.Name = "btnText" Then TextBox2.Visible = True
     End Sub
 
-    Private Sub click_addText(sender As System.Object, e As System.EventArgs)
-
-
-        Dim btn As Button = sender
+    ' Click event for Add New Text button
+    Private Sub click_addText(sender As Object, e As EventArgs)
+        Dim btn As Button = CType(sender, Button)
         If btn.Name = "btnText" Then
             TextBox2.Visible = False
             root(TextBox2.Text.Split(" ").ToList)
             TextBox2.Text = Nothing
         End If
-
     End Sub
 
-    Private Sub sort_btn(sender As System.Object, e As System.EventArgs) Handles Button1.Click
-        Dim btn As Button = sender
+    ' Sort button behavior
+    Private Sub sort_btn(sender As Object, e As EventArgs) Handles Button1.Click
+        Dim btn As Button = CType(sender, Button)
         If btn.Name = "Sort" Then
-            If flagSort Then
-                btn.Text = "Sort"
-            Else
-                btn.Text = "Un Sort"
-            End If
-            Me.panel.Visible = Not panel.Visible
-            Me.listSort.Visible = Not listSort.Visible
+            btn.Text = If(flagSort, "Sort", "Un Sort")
+            panel.Visible = Not panel.Visible
+            listSort.Visible = Not listSort.Visible
             flagSort = Not flagSort
             printRoot()
         End If
     End Sub
 
+    ' Display root words
     Private Sub printRoot()
-
-
-        Dim arr() As String
-        If (Not Me.panel.Visible) Then
+        If Not panel.Visible Then
             listSort.Items.Clear()
-            For Each it In newItems
-                Dim setWords = String.Join(" , ", it.Value)
-                arr = setWords.Split(" , ")
+            For Each item In newItems
+                Dim setWords = String.Join(" , ", item.Value)
+                Dim arr() = setWords.Split(" , ")
+
                 If arr.Length <= 8 Then
-                    listSort.Items.Add(it.Key & " = [ " & setWords & " ]")
+                    listSort.Items.Add($"{item.Key} = [ {setWords} ]")
                 Else
-                    Dim firstHalf As String = String.Empty
-                    Dim secondHalf As String = String.Empty
-                    For i As Integer = 0 To 7
-                        firstHalf += arr(i) & " , "
-                    Next
-                    listSort.Items.Add(it.Key & " = [ " & firstHalf)
-                    For i As Integer = 8 To arr.Length - 1
-                        secondHalf += arr(i) & " , "
-                    Next
-                    listSort.Items.Add(secondHalf & " ]")
+                    Dim firstHalf = String.Join(" , ", arr.Take(8))
+                    Dim secondHalf = String.Join(" , ", arr.Skip(8))
+                    listSort.Items.Add($"{item.Key} = [ {firstHalf}")
+                    listSort.Items.Add($"{secondHalf} ]")
                 End If
             Next
         End If
     End Sub
 
-
+    ' Check box for ignored words
     Private Sub CheckBox1_CheckedChanged(sender As Object, e As EventArgs) Handles CheckBox1.CheckedChanged
         If CheckBox1.Checked Then
-            System.Threading.Thread.Sleep(200)
+            Thread.Sleep(200)
             listSort.Items.Clear()
-            For Each i In ignore
-                If i.Value Then
-                    listSort.Items.Add(i.Key)
-                End If
+            For Each item In ignore
+                If item.Value Then listSort.Items.Add(item.Key)
             Next
-
         Else
             printRoot()
         End If
     End Sub
-
-
 End Class
-
-
-'الاسلام المسلمين المسلمات المعامل المعلمين المعلمات المعلم المسلمون 
-'من عن لماذا اين كيف هل 
-'طفل اطفال الاطفال اطفالكم فأطفالكم اطفالهم والاطفال فاطفالهم وطفل الطفولة والطفلتين طفلتان
